@@ -2,10 +2,11 @@
 
 namespace App\Actions\Fortify;
 
+use Image;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -27,6 +28,7 @@ class CreateNewUser implements CreatesNewUsers
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'user_name' => ['required', 'string', 'min:4', 'max:20', Rule::unique(User::class),],
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'email' => [
                 'required',
                 'string',
@@ -45,8 +47,31 @@ class CreateNewUser implements CreatesNewUsers
             'password' => Hash::make($input['password']),
         ]);
 
+        $this->saveProfileImage($user);
         $user->user_role = User::USER_ROLE;
         $user->save();
         return $user;
+    }
+
+    /**
+     * Upload user
+     * @param mixed $user
+     * @return void
+     * @throws BindingResolutionException
+     */
+    public function saveProfileImage($user)
+    {
+
+        $request = request();
+        $originalImage = $request->file('avatar');
+        $thumbnailImage = Image::make($originalImage);
+        $thumbnailPath = public_path('thumbnail/');
+        $originalPath = public_path('images/');
+        $thumbnailImage->save($originalPath . time() . $originalImage->getClientOriginalName());
+        $thumbnailImage->resize(256, 256);
+        $thumbnailImage->save($thumbnailPath . time() . $originalImage->getClientOriginalName());
+
+        $user->avatar = time() . $originalImage->getClientOriginalName();
+        $user->save();
     }
 }
